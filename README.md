@@ -19,11 +19,13 @@ properties for a Dialogflow agent, streamlining the configuration process.
 Google Cloud project, Dialogflow project, and agents inside the new project. This functions
 supports the dynamic creation agents based on user inputs, such as display name and
 environment.
+----------------------------------------------------------------------------------------------
 The automation of tasks such as pulling down intents and creating new agents eliminates manual
 efforts, saving hours of work. Additionally, the ability to create environments and agents
 dynamically provides greater flexibility in managing projects across different stages, from
 development to production.
-Important Note:
+
+#Important Note:
 Before running code, make sure the necessary dependencies are installed (Python, Google Cloud SDK,
 pip, pip google-cloud-dialogflow, pip gcloud, pip google-api-core). Additionally, update the
 ‘GOOGLE_APPLICATION_CREDENTIALS’ environment variable to the path of the service account key file
