@@ -1,5 +1,7 @@
 import os
 import csv
+import tkinter as tk
+from tkinter import filedialog
 import json
 from google.cloud import dialogflow_v2 as dialogflow
 from gcloud import resource_manager
@@ -151,16 +153,36 @@ def create_agent(proj_display_name, env):
     except Exception as e:
         print(f"Error creating Dialogflow agent: {e}")
         
-def sample_create_intent_from_csv(csv_file_path, project_id):
-    # Create a client
+def batch_create_intent_from_csv(project_id):
     client = dialogflow.IntentsClient()
 
-    # Read the CSV file
+    #Initialize a Tkinter root widget
+    root = tk.Tk()
+    root.withdraw()
+
+    root.attributes("-topmost", True)
+
+    #Display file explorer and return the path to the selected file
+    csv_file_path = filedialog.askopenfilename(
+        title="Select a CSV File",
+        filetypes=(("CSV files", "*.csv"), ("All files", "*.*"))
+    )
+
+    # Check if a file was selected
+    if not csv_file_path:
+        print("No file selected.")
+        return
+
+# Read the CSV file
     with open(csv_file_path, mode='r', encoding='utf-8') as csv_file:
         csv_reader = csv.reader(csv_file)
+        next(csv_reader)  # Skip the header row
         for row in csv_reader:
             # Each row in the CSV represents an intent
-            display_name, *training_phrases = row
+            display_name, training_phrases_string = row
+
+            # Split the training phrases string by comma
+            training_phrases = training_phrases_string.split(',')
 
             # Create an Intent object
             intent = dialogflow.Intent()
@@ -168,7 +190,7 @@ def sample_create_intent_from_csv(csv_file_path, project_id):
 
             # Add training phrases to the intent
             for phrase in training_phrases:
-                part = dialogflow.Intent.TrainingPhrase.Part(text=phrase)
+                part = dialogflow.Intent.TrainingPhrase.Part(text=phrase.strip())
                 training_phrase = dialogflow.Intent.TrainingPhrase(parts=[part])
                 intent.training_phrases.append(training_phrase)
 
@@ -215,7 +237,9 @@ if __name__ == "__main__":
             user_env = input("Enter the environment for the new agent (dev, preprod, prod): ")
             create_agent(user_display_name, user_env)
         elif choice == "6":
-            pass
+            user_project_id = input("Enter the Dialogflow project ID: ")
+            DIALOGFLOW_PROJECT_ID = user_project_id
+            batch_create_intent_from_csv(user_project_id)
         elif choice == "7":
             print("Exiting...")
             break
