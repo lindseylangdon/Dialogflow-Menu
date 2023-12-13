@@ -1,9 +1,15 @@
 import os
+import csv
 import json
 from google.cloud import dialogflow_v2 as dialogflow
+from gcloud import resource_manager
 from google.api_core.exceptions import InvalidArgument, PermissionDenied
 
+#Change depending on location
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:\\Users\\linds\\Desktop\\private_key.json"
+
+#Global variable to store the last used project ID
+last_project_id = 1
 
 def query_text(text):
     DIALOGFLOW_PROJECT_ID = 'test-agent-oren'
@@ -59,7 +65,7 @@ def list_intents(proj_id):
 def create_environments():
     print("Creating environments...")
 
-def create_agent(proj_id, proj_display_name):
+def set_agent(proj_id, proj_display_name):
     client = dialogflow.AgentsClient()
     
     parent = f"projects/{proj_id}"
@@ -81,16 +87,114 @@ def create_agent(proj_id, proj_display_name):
     except Exception as e:
         print(f"Error creating agent: {e}")
 
+def create_agent(proj_display_name, env):
+    #Create a new google cloud project
+    global last_project_id
+    last_project_id += 1
+    
+    valid_env_options = {'dev', 'preprod', 'prod'}
+    env = env.lower()
+
+    while env not in valid_env_options:
+        print("Invalid environment option. Please choose from: dev, preprod, prod")
+        env = input("Enter the environment for the new agent: ").lower()
+
+    client = resource_manager.Client()
+    project = client.new_project(f'project-id-{last_project_id}', name=proj_display_name,
+                             labels={'environment': env})
+    project.create()
+
+    #Extract the project ID from the newly created project
+    project_id = project.project_id
+
+    #Create a new Dialogflow project
+    dialogflow_client = dialogflow.ProjectsClient()
+    parent = f"projects/{project_id}"  # Use the extracted project ID
+
+    dialogflow_project = dialogflow_client.create_project(
+        parent=parent,
+        project=dialogflow.Project(display_name=proj_display_name)
+    )
+
+    # Set roles for Dialogflow API Admin and Dialogflow API Client
+    policy = dialogflow_client.get_iam_policy(resource=parent)
+    policy.bindings.append(
+        dialogflow.Binding(
+            role="roles/dialogflow.apiAdmin",
+            members=[f"serviceAccount:service-{project.project_number}@dialogflow.iam.gserviceaccount.com"]
+        )
+    )
+    policy.bindings.append(
+        dialogflow.Binding(
+            role="roles/dialogflow.apiClient",
+            members=[f"serviceAccount:service-{project.project_number}@dialogflow.iam.gserviceaccount.com"]
+        )
+    )
+    dialogflow_client.set_iam_policy(resource=parent, policy=policy)
+
+    # Create a new Dialogflow agent
+    dialogflow_agent_client = dialogflow.AgentsClient()
+    dialogflow_parent = f"projects/{project_id}"
+
+    dialogflow_agent = dialogflow.Agent(
+        parent=dialogflow_parent,
+        display_name=proj_display_name,
+        default_language_code='en',
+        time_zone='America/Barbados'
+    )
+
+    print("Creating Dialogflow agent...")
+    try:
+        response = dialogflow_agent_client.set_agent(request={"agent": dialogflow_agent})
+        print(response)
+        print(f"Dialogflow agent '{proj_display_name}' created.")
+    except Exception as e:
+        print(f"Error creating Dialogflow agent: {e}")
+        
+def sample_create_intent_from_csv(csv_file_path, project_id):
+    # Create a client
+    client = dialogflow.IntentsClient()
+
+    # Read the CSV file
+    with open(csv_file_path, mode='r', encoding='utf-8') as csv_file:
+        csv_reader = csv.reader(csv_file)
+        for row in csv_reader:
+            # Each row in the CSV represents an intent
+            display_name, *training_phrases = row
+
+            # Create an Intent object
+            intent = dialogflow.Intent()
+            intent.display_name = display_name
+
+            # Add training phrases to the intent
+            for phrase in training_phrases:
+                part = dialogflow.Intent.TrainingPhrase.Part(text=phrase)
+                training_phrase = dialogflow.Intent.TrainingPhrase(parts=[part])
+                intent.training_phrases.append(training_phrase)
+
+            # Create the CreateIntentRequest
+            parent = f'projects/{project_id}/agent'
+            request = dialogflow.CreateIntentRequest(
+                parent=parent,
+                intent=intent,
+            )
+
+            # Make the request
+            response = client.create_intent(request=request)
+            print(f'Intent created: {response.display_name}')
+    
 if __name__ == "__main__":
     while True:
         print("\nSelect an option:")
         print("1. Pull Intents/Training data")
         print("2. Query Text")
         print("3. Create Environments")
-        print("4. Create Agent")
-        print("5. Exit")
+        print("4. Set Agent")
+        print("5. Create Agent")
+        print("6. Batch Upload Intent")
+        print("7. Exit")
 
-        choice = input("Enter your choice (1-5): ")
+        choice = input("Enter your choice (1-7): ")
 
         if choice == "1":
             user_project_id = input("Enter the Dialogflow project ID: ")
@@ -105,9 +209,15 @@ if __name__ == "__main__":
             user_project_id = input("Enter the Dialogflow project ID: ")
             DIALOGFLOW_PROJECT_ID = user_project_id
             user_display_name = input("Enter the display name for the new agent: ")
-            create_agent(user_project_id, user_display_name)
+            set_agent(user_project_id, user_display_name)
         elif choice == "5":
+            user_display_name = input("Enter the display name for the new agent: ")
+            user_env = input("Enter the environment for the new agent (dev, preprod, prod): ")
+            create_agent(user_display_name, user_env)
+        elif choice == "6":
+            pass
+        elif choice == "7":
             print("Exiting...")
             break
         else:
-            print("Invalid choice. Please enter a number between 1 and 5.")
+            print("Invalid choice. Please enter a number between 1 and 7.")
