@@ -1,6 +1,6 @@
-﻿Intents,Training Phrases
-Batch-1,"train1, train2, train3"
-Batch-2,"train1, train2"
-Batch-3,train 1
-Batch-4,"train1, train2"
-Batch-5,"train1, train2, train3"
+﻿Intents,Training Phrases,,
+Batch-1,train1,train2,train3
+Batch-2,train1,train2,
+Batch-3,train 1,,
+Batch-4,train1,train2,
+Batch-5,train1,train2,train3

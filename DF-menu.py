@@ -178,11 +178,14 @@ def batch_create_intent_from_csv(project_id):
         csv_reader = csv.reader(csv_file)
         next(csv_reader)  # Skip the header row
         for row in csv_reader:
-            # Each row in the CSV represents an intent
-            display_name, training_phrases_string = row
+            display_name = row[0]
+            training_phrases = []
 
-            # Split the training phrases string by comma
-            training_phrases = training_phrases_string.split(',')
+            #Iterate through columns and stop reading in training phrases if column is empty
+            for phrase in row[1:]:
+                if not phrase:
+                    break
+                training_phrases.append(phrase)
 
             # Create an Intent object
             intent = dialogflow.Intent()
