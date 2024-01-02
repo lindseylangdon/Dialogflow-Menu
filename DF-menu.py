@@ -1,17 +1,21 @@
 import os
+import subprocess
 import csv
 import tkinter as tk
 from tkinter import filedialog
 import json
 from google.cloud import dialogflow_v2 as dialogflow
+from google.cloud import resourcemanager_v3
 from gcloud import resource_manager
 from google.api_core.exceptions import InvalidArgument, PermissionDenied
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+import googleapiclient.errors
+import uuid
+import re
 
 #Change depending on location
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:\\Users\\linds\\Desktop\\private_key.json"
-
-#Global variable to store the last used project ID
-last_project_id = 1
+# os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:\\Users\\linds\\Desktop\\private_key.json"
 
 def query_text(text):
     DIALOGFLOW_PROJECT_ID = 'test-agent-oren'
@@ -64,8 +68,59 @@ def list_intents(proj_id):
     except PermissionDenied as e:
         print(f"Permission denied error: {e}")
 
-def create_environments():
-    print("Creating environments...")
+def create_environments(environment_type, proj_name):
+    valid_env_options = {'dev', 'preprod', 'prod'}
+    while environment_type.lower() not in valid_env_options:
+        print("Invalid environment option. Please choose from: dev, preprod, prod")
+        environment_type = input("Enter the environment for the new project: ").lower()
+        
+
+    project_id = create_project(proj_name, environment_type)
+    
+    # Set up the environment-specific configurations here
+    if environment_type == 'dev':
+        # Set up configurations for the development environment
+        print("Creating dev environment...")
+    elif environment_type == 'preprod':
+        # Set up configurations for the pre-production environment
+        print("Creating preprod environment...")
+    elif environment_type == 'prod':
+        # Set up configurations for the production environment
+        print("Creating prod environment...")
+
+    return project_id
+
+def create_project(proj_display_name, env):
+    proj_display_name = re.sub(r'[^a-z0-9-]', '-', proj_display_name.lower())
+    env = env.lower()
+
+    valid_env_options = {'dev', 'preprod', 'prod'}
+    while env.lower() not in valid_env_options:
+        print("Invalid environment option. Please choose from: dev, preprod, prod")
+        env = input("Enter the environment for the new project: ").lower()
+
+    unique_id = str(uuid.uuid4())[:8]
+    project_id = f"{proj_display_name}-{env}-{unique_id}"
+    if len(project_id) > 30:
+        excess_length = len(project_id) - 30
+        project_id = project_id[:-excess_length]
+    
+    client = resourcemanager_v3.ProjectsClient()
+
+    # Initialize request argument(s)
+    request = resourcemanager_v3.CreateProjectRequest(
+        project=resourcemanager_v3.Project(
+            project_id=project_id
+        )
+    )
+
+    operation = client.create_project(request=request)
+
+    print("Waiting for operation to complete...")
+
+    # Handle the response
+    response = operation.result()
+    print(response)
 
 def set_agent(proj_id, proj_display_name):
     client = dialogflow.AgentsClient()
@@ -90,56 +145,19 @@ def set_agent(proj_id, proj_display_name):
         print(f"Error creating agent: {e}")
 
 def create_agent(proj_display_name, env):
-    #Create a new google cloud project
-    global last_project_id
-    last_project_id += 1
+    #Cretae new google cloud project
+    project_id = create_project(proj_display_name, env)
+
+    if not project_id:
+        print("Failed to create a Google Cloud project.")
+        return
     
-    valid_env_options = {'dev', 'preprod', 'prod'}
-    env = env.lower()
-
-    while env not in valid_env_options:
-        print("Invalid environment option. Please choose from: dev, preprod, prod")
-        env = input("Enter the environment for the new agent: ").lower()
-
-    client = resource_manager.Client()
-    project = client.new_project(f'project-id-{last_project_id}', name=proj_display_name,
-                             labels={'environment': env})
-    project.create()
-
-    #Extract the project ID from the newly created project
-    project_id = project.project_id
-
-    #Create a new Dialogflow project
+    #Initialize DF client
     dialogflow_client = dialogflow.ProjectsClient()
     parent = f"projects/{project_id}"  # Use the extracted project ID
 
-    dialogflow_project = dialogflow_client.create_project(
-        parent=parent,
-        project=dialogflow.Project(display_name=proj_display_name)
-    )
-
-    # Set roles for Dialogflow API Admin and Dialogflow API Client
-    policy = dialogflow_client.get_iam_policy(resource=parent)
-    policy.bindings.append(
-        dialogflow.Binding(
-            role="roles/dialogflow.apiAdmin",
-            members=[f"serviceAccount:service-{project.project_number}@dialogflow.iam.gserviceaccount.com"]
-        )
-    )
-    policy.bindings.append(
-        dialogflow.Binding(
-            role="roles/dialogflow.apiClient",
-            members=[f"serviceAccount:service-{project.project_number}@dialogflow.iam.gserviceaccount.com"]
-        )
-    )
-    dialogflow_client.set_iam_policy(resource=parent, policy=policy)
-
-    # Create a new Dialogflow agent
-    dialogflow_agent_client = dialogflow.AgentsClient()
-    dialogflow_parent = f"projects/{project_id}"
-
     dialogflow_agent = dialogflow.Agent(
-        parent=dialogflow_parent,
+        parent=parent,
         display_name=proj_display_name,
         default_language_code='en',
         time_zone='America/Barbados'
@@ -147,9 +165,9 @@ def create_agent(proj_display_name, env):
 
     print("Creating Dialogflow agent...")
     try:
-        response = dialogflow_agent_client.set_agent(request={"agent": dialogflow_agent})
-        print(response)
-        print(f"Dialogflow agent '{proj_display_name}' created.")
+        response = dialogflow_client.set_agent(request={"agent": dialogflow_agent})
+        print(f"Dialogflow agent '{proj_display_name}' created in project {project_id}.")
+        return response
     except Exception as e:
         print(f"Error creating Dialogflow agent: {e}")
         
@@ -229,7 +247,9 @@ if __name__ == "__main__":
             text_to_be_analyzed = input("Enter text to be analyzed: ")
             query_text(text_to_be_analyzed)
         elif choice == "3":
-            create_environments()
+            user_env = input("Enter the environment for the new agent (dev, preprod, prod): ")
+            user_display_name = input("Create a name for the new agent: ")
+            create_environments(user_env, user_display_name)
         elif choice == "4":
             user_project_id = input("Enter the Dialogflow project ID: ")
             DIALOGFLOW_PROJECT_ID = user_project_id
