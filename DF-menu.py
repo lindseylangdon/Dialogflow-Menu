@@ -1,5 +1,4 @@
 import os
-import subprocess
 import csv
 import tkinter as tk
 from tkinter import filedialog
@@ -14,8 +13,19 @@ import googleapiclient.errors
 import uuid
 import re
 
-#Change depending on location
+#use for service account
 # os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:\\Users\\linds\\Desktop\\private_key.json"
+
+def enable_api(project_id):
+    service = build('serviceusage', 'v1')
+
+    # Construct the service name
+    service_name = 'dialogflow.googleapis.com'
+    request = service.services().enable(
+        name=f'projects/{project_id}/services/{service_name}'
+    )
+    response = request.execute()
+    print(f"Enabled {service_name} for {project_id}")
 
 def query_text(text):
     DIALOGFLOW_PROJECT_ID = 'test-agent-oren'
@@ -76,6 +86,9 @@ def create_environments(environment_type, proj_name):
         
 
     project_id = create_project(proj_name, environment_type)
+
+    if project_id is None:
+        raise Exception("Failed to create project.")
     
     # Set up the environment-specific configurations here
     if environment_type == 'dev':
@@ -88,7 +101,7 @@ def create_environments(environment_type, proj_name):
         # Set up configurations for the production environment
         print("Creating prod environment...")
 
-    return project_id
+    create_agent(project_id, environment_type)
 
 def create_project(proj_display_name, env):
     proj_display_name = re.sub(r'[^a-z0-9-]', '-', proj_display_name.lower())
@@ -110,17 +123,28 @@ def create_project(proj_display_name, env):
     # Initialize request argument(s)
     request = resourcemanager_v3.CreateProjectRequest(
         project=resourcemanager_v3.Project(
-            project_id=project_id
+            project_id=project_id,
         )
     )
 
+    print("Creating Google Cloud project...")
     operation = client.create_project(request=request)
 
     print("Waiting for operation to complete...")
 
-    # Handle the response
     response = operation.result()
-    print(response)
+    print(f"Project created: {response}")
+    #print(response)
+
+    print(f"Enabling Dialogflow API for project {project_id}...")
+    try:
+        enable_api(project_id)
+        print("Dialogflow API enabled successfully.")
+    except Exception as e:
+        print(f"Error enabling Dialogflow API: {e}")
+        return
+
+    return project_id
 
 def set_agent(proj_id, proj_display_name):
     client = dialogflow.AgentsClient()
@@ -133,8 +157,6 @@ def set_agent(proj_id, proj_display_name):
         default_language_code='en',
         time_zone='America/Barbados'
     )
-
-    #request = dialogflow.SetAgentRequest(agent=agent)
     
     print("Creating agent...")
     try:
@@ -145,31 +167,14 @@ def set_agent(proj_id, proj_display_name):
         print(f"Error creating agent: {e}")
 
 def create_agent(proj_display_name, env):
-    #Cretae new google cloud project
+    #Create new google cloud project
     project_id = create_project(proj_display_name, env)
 
     if not project_id:
         print("Failed to create a Google Cloud project.")
         return
     
-    #Initialize DF client
-    dialogflow_client = dialogflow.ProjectsClient()
-    parent = f"projects/{project_id}"  # Use the extracted project ID
-
-    dialogflow_agent = dialogflow.Agent(
-        parent=parent,
-        display_name=proj_display_name,
-        default_language_code='en',
-        time_zone='America/Barbados'
-    )
-
-    print("Creating Dialogflow agent...")
-    try:
-        response = dialogflow_client.set_agent(request={"agent": dialogflow_agent})
-        print(f"Dialogflow agent '{proj_display_name}' created in project {project_id}.")
-        return response
-    except Exception as e:
-        print(f"Error creating Dialogflow agent: {e}")
+    set_agent(project_id, proj_display_name)
         
 def batch_create_intent_from_csv(project_id):
     client = dialogflow.IntentsClient()
@@ -232,12 +237,12 @@ if __name__ == "__main__":
         print("1. Pull Intents/Training data")
         print("2. Query Text")
         print("3. Create Environments")
-        print("4. Set Agent")
-        print("5. Create Agent")
-        print("6. Batch Upload Intent")
-        print("7. Exit")
+        #print("4. Set Agent")
+        print("4. Create Agent")
+        print("5. Batch Upload Intent")
+        print("6. Exit")
 
-        choice = input("Enter your choice (1-7): ")
+        choice = input("Enter your choice (1-6): ")
 
         if choice == "1":
             user_project_id = input("Enter the Dialogflow project ID: ")
@@ -250,20 +255,20 @@ if __name__ == "__main__":
             user_env = input("Enter the environment for the new agent (dev, preprod, prod): ")
             user_display_name = input("Create a name for the new agent: ")
             create_environments(user_env, user_display_name)
+        # elif choice == "4":
+        #     user_project_id = input("Enter the Dialogflow project ID: ")
+        #     DIALOGFLOW_PROJECT_ID = user_project_id
+        #     user_display_name = input("Enter the display name for the new agent: ")
+        #     set_agent(user_project_id, user_display_name)
         elif choice == "4":
-            user_project_id = input("Enter the Dialogflow project ID: ")
-            DIALOGFLOW_PROJECT_ID = user_project_id
-            user_display_name = input("Enter the display name for the new agent: ")
-            set_agent(user_project_id, user_display_name)
-        elif choice == "5":
             user_display_name = input("Enter the display name for the new agent: ")
             user_env = input("Enter the environment for the new agent (dev, preprod, prod): ")
             create_agent(user_display_name, user_env)
-        elif choice == "6":
+        elif choice == "5":
             user_project_id = input("Enter the Dialogflow project ID: ")
             DIALOGFLOW_PROJECT_ID = user_project_id
             batch_create_intent_from_csv(user_project_id)
-        elif choice == "7":
+        elif choice == "6":
             print("Exiting...")
             break
         else:
