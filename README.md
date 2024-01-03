@@ -21,8 +21,7 @@ environment.
 ----------------------------------------------------------------------------------------------
 The automation of tasks such as pulling down intents and creating new agents eliminates manual
 efforts, saving hours of work. Additionally, the ability to create environments and agents
-dynamically provides greater flexibility in managing projects across different stages, from
-development to production.
+dynamically provides greater flexibility in managing projects across different stages.
 
 ## Installation
 
