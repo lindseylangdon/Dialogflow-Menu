@@ -15,9 +15,8 @@ Dialogflow project set up, we do not have different environments for our bots. H
 would like to eventually create dev, preprod, and production environments for all bots.
 4. Setting Agent Properties: This function is mainly a helper function that allows users to set
 properties for a Dialogflow agent, streamlining the configuration process.
-5. Creating New Agents (in progress): The function ‘create_agent’ handles the creation of a new
-Google Cloud project, Dialogflow project, and agents inside the new project. This functions
-supports the dynamic creation agents based on user inputs, such as display name and
+5. Creating New Agents: The function ‘create_agent’ handles the creation of a new
+Google Cloud project and Dialogflow Agent. This function supports the dynamic creation agents based on user inputs, such as display name and
 environment.
 ----------------------------------------------------------------------------------------------
 The automation of tasks such as pulling down intents and creating new agents eliminates manual
@@ -25,8 +24,30 @@ efforts, saving hours of work. Additionally, the ability to create environments 
 dynamically provides greater flexibility in managing projects across different stages, from
 development to production.
 
-**Important Note:**
-Before running code, make sure the necessary dependencies are installed (Python, Google Cloud SDK,
-pip, pip google-cloud-dialogflow, pip gcloud, pip google-api-core). Additionally, update the
-‘GOOGLE_APPLICATION_CREDENTIALS’ environment variable to the path of the service account key file
-on your local machine.
+## Installation
+
+Before running the `DF-menu.py` script, ensure you have the following prerequisites installed and set up:
+
+1. **Python**: The script is written in Python, so make sure you have Python installed on your system. You can download it from [Python's official website](https://www.python.org/downloads/).
+
+2. **Google Cloud SDK**: Since the script interacts with Dialogflow, which is a part of Google Cloud, you'll need to install the Google Cloud SDK. Follow the instructions [here](https://cloud.google.com/sdk/docs/install) to install it.
+
+3. **Python Packages**: Install the necessary Python packages using pip. Run the following command:
+
+    ```bash
+    pip install google-cloud-dialogflow google-cloud-resourcemanager google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2
+    ```
+
+4. **Environment Variables**: Set up the necessary environment variables. For instance, you'll need to set up the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to authenticate with Google Cloud. Replace `/path/to/your/service-account-file.json` with the path to your JSON service account key file.
+
+    ```bash
+    export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-file.json"
+    ```
+
+5. **Running the Script**: Once everything is set up, you can run the `DF-menu.py` script using Python:
+
+    ```bash
+    python DF-menu.py
+    ```
+
+Follow these steps to set up and run the `DF-menu.py` script successfully.
