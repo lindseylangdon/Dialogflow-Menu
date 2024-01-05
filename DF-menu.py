@@ -68,28 +68,12 @@ def list_intents(proj_id):
 
             if user_choice == 'yes':
                 training_phrases = [phrase.parts[0].text for phrase in intent.training_phrases] if intent.training_phrases else []
-
-            # Extract 'ivr-curr-text' parameter value
-            # for parameter in intent.parameters:
-            #     if parameter.display_name == 'ivr-curr-text':
-            #         ivr_curr_text = parameter.value
-            #         #print(f'{intent_name}: {ivr_curr_text}')
-            #         break
-                
+           
             for parameter in intent.parameters:
                 if parameter.display_name == 'ivr-curr-text':
                     ivr_curr_text = parameter.value.strip()
                 elif parameter.display_name == 'c2c-curr-text':
                     c2c_curr_text = parameter.value.strip()
-            
-            # Populate data for CSV
-            # if training_phrases:
-            #     for phrase in training_phrases:
-            #         intents_data_csv.append([intent_name, phrase])
-            # elif user_choice == 'yes':
-            #     intents_data_csv.append([intent_name, ''])
-            # else:
-            #     intents_data_csv.append([intent_name])
             
             if user_choice == 'yes':
                 if training_phrases:
