@@ -58,44 +58,63 @@ def list_intents(proj_id):
     intents_data_csv = []  # List for storing intents and training phrases for CSV
     intents_data_json = {}  # Dictionary for storing intents and training phrases for JSON
 
-    # page_result = client.list_intents(request=request)
-    # for response in page_result:
-    #     print(response)
-
     try:
         page_result = client.list_intents(request=request)
         for intent in page_result:
             intent_name = intent.display_name
             training_phrases = []
+            ivr_curr_text = None
+            c2c_curr_text = None
 
             if user_choice == 'yes':
                 training_phrases = [phrase.parts[0].text for phrase in intent.training_phrases] if intent.training_phrases else []
 
+            # Extract 'ivr-curr-text' parameter value
+            # for parameter in intent.parameters:
+            #     if parameter.display_name == 'ivr-curr-text':
+            #         ivr_curr_text = parameter.value
+            #         #print(f'{intent_name}: {ivr_curr_text}')
+            #         break
+                
+            for parameter in intent.parameters:
+                if parameter.display_name == 'ivr-curr-text':
+                    ivr_curr_text = parameter.value.strip()
+                elif parameter.display_name == 'c2c-curr-text':
+                    c2c_curr_text = parameter.value.strip()
+            
             # Populate data for CSV
-            if training_phrases:
-                for phrase in training_phrases:
-                    intents_data_csv.append([intent_name, phrase])
-            elif user_choice == 'yes':
-                intents_data_csv.append([intent_name, ''])
+            # if training_phrases:
+            #     for phrase in training_phrases:
+            #         intents_data_csv.append([intent_name, phrase])
+            # elif user_choice == 'yes':
+            #     intents_data_csv.append([intent_name, ''])
+            # else:
+            #     intents_data_csv.append([intent_name])
+            
+            if user_choice == 'yes':
+                if training_phrases:
+                    for phrase in training_phrases:
+                        intents_data_csv.append([intent_name, phrase, ivr_curr_text, c2c_curr_text])
+                else:
+                    intents_data_csv.append([intent_name, '', ivr_curr_text, c2c_curr_text])
             else:
-                intents_data_csv.append([intent_name])
-
+                intents_data_csv.append([intent_name, ivr_curr_text, c2c_curr_text])
 
             # Populate data for JSON
             intents_data_json[intent_name] = training_phrases
 
         # Write to JSON file
-        json_output_file_path = "intents_with_training_phrases.json"
+        json_output_file_path = "intents_data.json"
         with open(json_output_file_path, 'w') as json_file:
             json.dump(intents_data_json, json_file, indent=2)
 
         # Write to CSV file
-        csv_output_file_path = "intents_with_training_phrases.csv"
+        csv_output_file_path = "intents_data.csv"
         with open(csv_output_file_path, mode='w', newline='', encoding='utf-8') as csv_file:
             writer = csv.writer(csv_file)
-            headers = ['Intent Name'] if user_choice == 'no' else ['Intent Name', 'Training Phrase']
-            writer.writerow(['Intent Name', 'Training Phrase'])  # Writing headers
-            writer.writerows(intents_data_csv)  # Writing data
+            headers = ['Intent Name', 'Training Phrase', 'IVR-curr-text', 'C2C-curr-text'] if user_choice == 'yes' else ['Intent Name', 'IVR-curr-text', 'C2C-curr-text']
+            writer.writerow(headers)
+            writer.writerows(intents_data_csv)
 
         print("Writing data...")
         print(f"Intents with training phrases written to {json_output_file_path} and {csv_output_file_path}")
