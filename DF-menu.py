@@ -27,12 +27,11 @@ def enable_api(project_id):
     response = request.execute()
     print(f"Enabled {service_name} for {project_id}")
 
-def query_text(text):
-    DIALOGFLOW_PROJECT_ID = 'test-agent-oren'
+def query_text(text, proj_id):
     DIALOGFLOW_LANGUAGE_CODE = 'en'
     SESSION_ID = 'me'
     session_client = dialogflow.SessionsClient()
-    session = session_client.session_path(DIALOGFLOW_PROJECT_ID, SESSION_ID)
+    session = session_client.session_path(proj_id, SESSION_ID)
     text_input = dialogflow.types.TextInput(text=text_to_be_analyzed, language_code=DIALOGFLOW_LANGUAGE_CODE)
     query_input = dialogflow.types.QueryInput(text=text_input)
     try:
@@ -46,6 +45,8 @@ def query_text(text):
     print("Fulfillment text:", response.query_result.fulfillment_text)
 
 def list_intents(proj_id):
+    user_choice = input("Do you want to include training phrases? (yes/no): ").strip().lower()
+
     client = dialogflow.IntentsClient()
 
     parent_val = f"projects/{DIALOGFLOW_PROJECT_ID}/agent"
@@ -57,15 +58,28 @@ def list_intents(proj_id):
     intents_data_csv = []  # List for storing intents and training phrases for CSV
     intents_data_json = {}  # Dictionary for storing intents and training phrases for JSON
 
+    # page_result = client.list_intents(request=request)
+    # for response in page_result:
+    #     print(response)
+
     try:
         page_result = client.list_intents(request=request)
         for intent in page_result:
             intent_name = intent.display_name
-            training_phrases = [phrase.parts[0].text for phrase in intent.training_phrases] if intent.training_phrases else []
+            training_phrases = []
+
+            if user_choice == 'yes':
+                training_phrases = [phrase.parts[0].text for phrase in intent.training_phrases] if intent.training_phrases else []
 
             # Populate data for CSV
-            for phrase in training_phrases:
-                intents_data_csv.append([intent_name, phrase])
+            if training_phrases:
+                for phrase in training_phrases:
+                    intents_data_csv.append([intent_name, phrase])
+            elif user_choice == 'yes':
+                intents_data_csv.append([intent_name, ''])
+            else:
+                intents_data_csv.append([intent_name])
+
 
             # Populate data for JSON
             intents_data_json[intent_name] = training_phrases
@@ -79,10 +93,11 @@ def list_intents(proj_id):
         csv_output_file_path = "intents_with_training_phrases.csv"
         with open(csv_output_file_path, mode='w', newline='', encoding='utf-8') as csv_file:
             writer = csv.writer(csv_file)
+            headers = ['Intent Name'] if user_choice == 'no' else ['Intent Name', 'Training Phrase']
             writer.writerow(['Intent Name', 'Training Phrase'])  # Writing headers
             writer.writerows(intents_data_csv)  # Writing data
 
-        print("Writing intents with training phrases...")
+        print("Writing data...")
         print(f"Intents with training phrases written to {json_output_file_path} and {csv_output_file_path}")
 
     except PermissionDenied as e:
@@ -260,7 +275,9 @@ if __name__ == "__main__":
             list_intents(user_project_id)
         elif choice == "2":
             text_to_be_analyzed = input("Enter text to be analyzed: ")
-            query_text(text_to_be_analyzed)
+            user_project_id = input("Enter the Dialogflow project ID: ")
+            DIALOGFLOW_PROJECT_ID = user_project_id
+            query_text(text_to_be_analyzed, user_project_id)
         elif choice == "3":
             user_env = input("Enter the environment for the new agent (dev, preprod, prod): ")
             user_display_name = input("Create a name for the new agent: ")
