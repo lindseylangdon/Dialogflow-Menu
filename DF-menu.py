@@ -54,7 +54,8 @@ def list_intents(proj_id):
         intent_view="INTENT_VIEW_FULL"
     )
 
-    intents_data = {}  # Dictionary to store intents and training phrases
+    intents_data_csv = []  # List for storing intents and training phrases for CSV
+    intents_data_json = {}  # Dictionary for storing intents and training phrases for JSON
 
     try:
         page_result = client.list_intents(request=request)
@@ -62,18 +63,27 @@ def list_intents(proj_id):
             intent_name = intent.display_name
             training_phrases = [phrase.parts[0].text for phrase in intent.training_phrases] if intent.training_phrases else []
 
-            intents_data[intent_name] = {
-                'display_name': intent.display_name,
-                'training_phrases': training_phrases
-            }
+            # Populate data for CSV
+            for phrase in training_phrases:
+                intents_data_csv.append([intent_name, phrase])
 
-        # Write the dictionary to a JSON file
-        output_file_path = "intents_with_training_phrases.json"
-        with open(output_file_path, 'w') as json_file:
-            json.dump(intents_data, json_file, indent=2)
+            # Populate data for JSON
+            intents_data_json[intent_name] = training_phrases
+
+        # Write to JSON file
+        json_output_file_path = "intents_with_training_phrases.json"
+        with open(json_output_file_path, 'w') as json_file:
+            json.dump(intents_data_json, json_file, indent=2)
+
+        # Write to CSV file
+        csv_output_file_path = "intents_with_training_phrases.csv"
+        with open(csv_output_file_path, mode='w', newline='', encoding='utf-8') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(['Intent Name', 'Training Phrase'])  # Writing headers
+            writer.writerows(intents_data_csv)  # Writing data
 
         print("Writing intents with training phrases...")
-        print(f"Intents with training phrases written to {output_file_path}")
+        print(f"Intents with training phrases written to {json_output_file_path} and {csv_output_file_path}")
 
     except PermissionDenied as e:
         print(f"Permission denied error: {e}")
