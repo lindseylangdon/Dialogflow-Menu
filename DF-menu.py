@@ -12,6 +12,7 @@ from google.oauth2 import service_account
 import googleapiclient.errors
 import uuid
 import re
+from bs4 import BeautifulSoup
 
 #use for service account
 # os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:\\Users\\linds\\Desktop\\private_key.json"
@@ -73,7 +74,11 @@ def list_intents(proj_id):
                 if parameter.display_name == 'ivr-curr-text':
                     ivr_curr_text = parameter.value.strip()
                 elif parameter.display_name == 'c2c-curr-text':
-                    c2c_curr_text = parameter.value.strip()
+                    html_content = parameter.value.strip()
+                    print("Original HTML: ", html_content)
+                    soup = BeautifulSoup(html_content, 'lxml')
+                    c2c_curr_text = soup.get_text()
+                    print("Beautified HTML: ", c2c_curr_text)
             
             if user_choice == 'yes':
                 if training_phrases:
